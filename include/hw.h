@@ -1,0 +1,18 @@
+#pragma once
+
+#ifdef ESP32S3_DEVKITC1_N16R8
+#define MIC_TYPE MIC_I2S
+
+#define SCL_PIN 5
+#define SDA_PIN 4
+#define BUTTON_PIN 0
+
+#define MIC_SCK GPIO_NUM_42
+#define MIC_WS  GPIO_NUM_41
+#define MIC_DIN GPIO_NUM_1
+
+#define I2S_SPEAKER_DOUT_PIN GPIO_NUM_2
+#define I2S_SPEAKER_BCLK_PIN GPIO_NUM_42
+#define I2S_SPEAKER_LRC_PIN GPIO_NUM_41
+#define I2S_SPEAKER_PORT I2S_NUM_1
+#endif
