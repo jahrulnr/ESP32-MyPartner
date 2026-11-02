@@ -70,12 +70,11 @@ void ReminderScreen::header(const DeviceSnapshot& state) {
     char humidity[10];
     snprintf(humidity, sizeof(humidity), "H:%u%%", (state.sensor.humidity10 + 5) / 10);
     display_.drawStr(17, 8, humidity);
-  }
-  if (state.sensor.online && state.sensor.hasPresence) {
-    char distance[10] = "-";
-    if (state.sensor.detected && state.sensor.hasDistance)
-      snprintf(distance, sizeof(distance), "%ucm", state.sensor.distanceCm);
-    display_.drawStr(55, 8, distance);
+    const int temperature = state.sensor.temperature10;
+    const unsigned rounded = (static_cast<unsigned>(std::abs(temperature)) + 5) / 10;
+    char text[12];
+    snprintf(text, sizeof(text), "T:%s%uC", temperature < 0 && rounded ? "-" : "", rounded);
+    display_.drawStr(55, 8, text);
   }
   char time[16] = "--:--";
   if (state.time.valid) snprintf(time, sizeof(time), "%02d:%02d", state.time.hour, state.time.minute);

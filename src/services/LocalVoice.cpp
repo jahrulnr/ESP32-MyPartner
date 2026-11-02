@@ -79,7 +79,7 @@ void LocalVoice::run() {
   TaskHandle_t feedHandle = nullptr;
   TaskHandle_t greetingHandle = nullptr;
   if (xTaskCreatePinnedToCore(greetingTask, "local-hi", 4096, this, 3, &greetingHandle, 1) != pdPASS ||
-      xTaskCreatePinnedToCore(feedTask, "mic-afe", 6144, this, 4, &feedHandle, 1) != pdPASS) {
+      xTaskCreatePinnedToCore(feedTask, "mic-afe", 6144, this, 5, &feedHandle, 0) != pdPASS) {
     if (greetingHandle) vTaskDelete(greetingHandle);
     partner::log.println("[voice] task allocation failed");
     cleanup();

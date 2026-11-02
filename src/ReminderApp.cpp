@@ -32,7 +32,7 @@ bool ReminderApp::begin() {
       xTaskCreatePinnedToCore(networkTask, "wifi-clock", config::networkStackBytes, this, 1, &tasks[0], 0) == pdPASS &&
       xTaskCreatePinnedToCore(reminderTask, "reminder", config::reminderStackBytes, this, 1, &tasks[1], 1) == pdPASS &&
       xTaskCreatePinnedToCore(displayTask, "oled", config::displayStackBytes, this, 2, &tasks[2], 1) == pdPASS &&
-      xTaskCreatePinnedToCore(voiceTask, "voice-mn", 12288, this, 3, &tasks[3], 0) == pdPASS &&
+      xTaskCreatePinnedToCore(voiceTask, "voice-mn", 12288, this, 5, &tasks[3], 1) == pdPASS &&
       xTaskCreatePinnedToCore(filesTask, "files", 8192, this, 1, &tasks[4], 0) == pdPASS;
   if (!ready) {
     for (auto task : tasks) if (task) vTaskDelete(task);
