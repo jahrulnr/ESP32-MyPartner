@@ -8,6 +8,14 @@
 namespace partner {
 
 bool MicStream::begin() {
+  producer_ = static_cast<Frame*>(heap_caps_calloc(1, sizeof(Frame), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  outgoing_ = static_cast<Frame*>(heap_caps_calloc(1, sizeof(Frame), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  packet_ = static_cast<uint8_t*>(heap_caps_malloc(4 + maxSamples * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  if (!producer_ || !outgoing_ || !packet_) {
+    heap_caps_free(producer_); heap_caps_free(outgoing_); heap_caps_free(packet_);
+    producer_ = outgoing_ = nullptr; packet_ = nullptr;
+    return false;
+  }
   frameStorage_ = static_cast<uint8_t*>(heap_caps_malloc(8 * sizeof(Frame), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   frames_ = frameStorage_ ? xQueueCreateStatic(8, sizeof(Frame), frameStorage_, &frameControl_) : xQueueCreate(8, sizeof(Frame));
   if (!frames_) return false;
@@ -19,25 +27,25 @@ bool MicStream::begin() {
 
 void MicStream::publish(const int16_t* samples, size_t count) {
   if (!frames_ || !active_.load()) {
-    producer_.count = 0;
+    if (producer_) producer_->count = 0;
     return;
   }
   while (count && active_.load()) {
     const uint32_t generation = generation_.load();
-    if (producer_.generation != generation) producer_.count = 0;
-    if (!producer_.count) {
-      producer_.generation = generation;
-      producer_.sampleIndex = sampleIndex_.load();
+    if (producer_->generation != generation) producer_->count = 0;
+    if (!producer_->count) {
+      producer_->generation = generation;
+      producer_->sampleIndex = sampleIndex_.load();
     }
-    const size_t copied = std::min(count, maxSamples - producer_.count);
-    std::memcpy(producer_.pcm + producer_.count, samples, copied * sizeof(int16_t));
-    producer_.count += copied;
+    const size_t copied = std::min(count, maxSamples - producer_->count);
+    std::memcpy(producer_->pcm + producer_->count, samples, copied * sizeof(int16_t));
+    producer_->count += copied;
     sampleIndex_.fetch_add(copied);
     samples += copied;
     count -= copied;
-    if (producer_.count == maxSamples) {
-      if (xQueueSend(frames_, &producer_, 0) != pdTRUE) dropped_.fetch_add(1);
-      producer_.count = 0;
+    if (producer_->count == maxSamples) {
+      if (xQueueSend(frames_, producer_, 0) != pdTRUE) dropped_.fetch_add(1);
+      producer_->count = 0;
     }
   }
 }
@@ -104,11 +112,11 @@ void MicStream::tick() {
     partner::log.printf("[mic-ws] ready: ws://%s:81/ (stream off)\n", announcedIp_.toString().c_str());
   }
   server_.loop();
-  for (int i = 0; i < 4 && xQueueReceive(frames_, &outgoing_, 0) == pdTRUE; ++i) {
-    if (!active_.load() || outgoing_.generation != generation_.load() || owner_ < 0) continue;
-    for (unsigned b = 0; b < 4; ++b) packet_[b] = outgoing_.sampleIndex >> (8 * b);
-    std::memcpy(packet_ + 4, outgoing_.pcm, outgoing_.count * sizeof(int16_t));
-    if (!server_.sendBIN(owner_, packet_, 4 + outgoing_.count * sizeof(int16_t))) {
+  for (int i = 0; i < 4 && xQueueReceive(frames_, outgoing_, 0) == pdTRUE; ++i) {
+    if (!active_.load() || outgoing_->generation != generation_.load() || owner_ < 0) continue;
+    for (unsigned b = 0; b < 4; ++b) packet_[b] = outgoing_->sampleIndex >> (8 * b);
+    std::memcpy(packet_ + 4, outgoing_->pcm, outgoing_->count * sizeof(int16_t));
+    if (!server_.sendBIN(owner_, packet_, 4 + outgoing_->count * sizeof(int16_t))) {
       stop(-1);
       break;
     }

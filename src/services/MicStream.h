@@ -33,10 +33,10 @@ class MicStream {
   std::atomic<bool> active_ {false};
   std::atomic<uint32_t> generation_ {0}, sampleIndex_ {0}, dropped_ {0};
   // Written only by the microphone task; discarded when the session changes.
-  Frame producer_ {};
+  Frame* producer_ = nullptr;
   // Used only by the network task, keeping large buffers off task stacks.
-  Frame outgoing_ {};
-  uint8_t packet_[4 + maxSamples * sizeof(int16_t)] {};
+  Frame* outgoing_ = nullptr;
+  uint8_t* packet_ = nullptr;
   int owner_ = -1;
   bool listening_ = false;
   IPAddress announcedIp_;

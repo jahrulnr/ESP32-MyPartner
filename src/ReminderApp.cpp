@@ -14,13 +14,27 @@ ReminderApp::ReminderApp()
       personal_(state_, LittleFS),
       generator_(transport_, state_, {AI_BASE_URL, AI_ENDPOINT, AI_MODEL, AI_API_KEY}),
       mcp_(state_, speaker_, personal_),
-      voice_(speaker_, capture_, micStream_, recognizer_),
+      media_(speaker_),
+      voice_(speaker_, capture_, micStream_, media_),
       files_(LittleFS, capture_),
       speech_(speaker_, state_, {TTS_BASE_URL, TTS_MODEL, TTS_VOICE, TTS_API_KEY}),
       workflow_(generator_, speech_, state_),
       display_(U8G2_R0, U8X8_PIN_NONE, SCL_PIN, SDA_PIN), screen_(display_) {}
 
 bool ReminderApp::begin() {
+  Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(400000);
+  Wire.beginTransmission(config::oledAddress);
+  displayPresent_ = Wire.endTransmission() == 0;
+  if (displayPresent_) {
+    display_.setI2CAddress(config::oledAddress << 1);
+    display_.setBusClock(400000);
+    display_.begin();
+    screen_.begin();
+  } else {
+    partner::log.println("[oled] no display at configured I2C address");
+  }
+  if (!media_.begin()) partner::log.println("[usb] initialization failed");
   files_.begin();
   personal_.begin(files_.mounted());
   mcp_.begin();
@@ -32,7 +46,7 @@ bool ReminderApp::begin() {
       xTaskCreatePinnedToCore(networkTask, "wifi-clock", config::networkStackBytes, this, 1, &tasks[0], 0) == pdPASS &&
       xTaskCreatePinnedToCore(reminderTask, "reminder", config::reminderStackBytes, this, 1, &tasks[1], 1) == pdPASS &&
       xTaskCreatePinnedToCore(displayTask, "oled", config::displayStackBytes, this, 2, &tasks[2], 1) == pdPASS &&
-      xTaskCreatePinnedToCore(voiceTask, "voice-mn", 12288, this, 5, &tasks[3], 1) == pdPASS &&
+      xTaskCreatePinnedToCore(voiceTask, "voice-afe", 6144, this, 5, &tasks[3], 1) == pdPASS &&
       xTaskCreatePinnedToCore(filesTask, "files", 8192, this, 1, &tasks[4], 0) == pdPASS;
   if (!ready) {
     for (auto task : tasks) if (task) vTaskDelete(task);
@@ -168,18 +182,6 @@ void ReminderApp::runReminder() {
 
 void ReminderApp::runDisplay() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  Wire.begin(SDA_PIN, SCL_PIN);
-  Wire.setClock(400000);
-  Wire.beginTransmission(config::oledAddress);
-  const bool present = Wire.endTransmission() == 0;
-  if (present) {
-    display_.setI2CAddress(config::oledAddress << 1);
-    display_.setBusClock(400000);
-    display_.begin();
-    screen_.begin();
-  } else {
-    partner::log.println("[oled] no display at configured I2C address");
-  }
   Button button;
   bool screenOff = false;
   TickType_t wake = xTaskGetTickCount();
@@ -194,7 +196,7 @@ void ReminderApp::runDisplay() {
         break;
       default: break;
     }
-    if (present) {
+    if (displayPresent_) {
       screen_.setPage(snapshot.screen);
       screen_.render(snapshot, millis());
       if (screen_.poweredOff() != screenOff) {

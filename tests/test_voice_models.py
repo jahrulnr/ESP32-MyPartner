@@ -10,30 +10,18 @@ spec.loader.exec_module(packer)
 
 
 class VoiceModelPackageTest(unittest.TestCase):
-    def test_all_models_fit_and_have_required_assets_and_commands(self):
-        source = Path(__file__).resolve().parents[1] / 'model/esp_sr/model'
-        for version, name in packer.MODEL_NAMES.items():
-            with self.subTest(version=version):
-                models = packer.build_models(source, version)
-                self.assertEqual(set(models), {'vadnet1_medium', name, 'fst'})
-                self.assertIn(b'HI PARTNER', models['fst']['commands_en.txt'])
-                self.assertIn(b'HEY PARTNER', models['fst']['commands_en.txt'])
-                self.assertLessEqual(len(packer.pack(models)), 0x500000)
-
-    def test_config_rejects_unknown_or_noninteger_model(self):
+    def test_vad_package_contains_only_vad_assets(self):
         with tempfile.TemporaryDirectory() as directory:
-            config = Path(directory) / 'model.json'
-            for value in ('5', '6', '7'):
-                config.write_text('{"multinet": ' + value + '}')
-                self.assertEqual(packer.selected_version(config), int(value))
-            for value in ('4', '8', 'true', '"6"'):
-                config.write_text('{"multinet": ' + value + '}')
-                with self.assertRaises(ValueError):
-                    packer.selected_version(config)
+            source = Path(directory)
+            vad = source / 'vadnet_model/vadnet1_medium'
+            vad.mkdir(parents=True)
+            (vad / 'weights').write_bytes(b'vad-weights')
+            models = packer.build_models(source)
+            self.assertEqual(models, {'vadnet1_medium': {'weights': b'vad-weights'}})
+            self.assertLessEqual(len(packer.pack(models)), 0x500000)
 
-    def test_packed_offsets_preserve_vocab_and_commands(self):
-        models = {'mn6_en': {'vocab': b'S\t0\n', 'mn6_data': b'\0\xffweights'},
-                  'fst': {'commands_en.txt': b'1,HI PARTNER\n'}}
+    def test_packed_offsets_preserve_model_files(self):
+        models = {'vadnet1_medium': {'index': b'index', 'data': b'\0\xffweights'}}
         packed = packer.pack(models)
         offset = 4
         recovered = {}

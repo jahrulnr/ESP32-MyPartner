@@ -2,20 +2,18 @@
 
 <h1>ESP32-MyPartner</h1>
 <p><strong>A little presence on your desk.</strong></p>
-<p>An ESP32-S3 desk companion that responds to your voice, shows expressions,<br>
-reminds you of important things, and senses the room around it.</p>
+<p>An ESP32-S3 desk companion that shows expressions,<br>
+reminds you of important things, senses the room, and exposes USB media.</p>
 <p><code>ESP32-S3</code> · <code>FreeRTOS</code> · <code>ESP-NOW</code> · <code>MCP</code> · <code>Voice</code></p>
 
 </div>
 
 MyPartner is a physical companion designed to stay nearby: a small face on a
 screen, a voice that greets you, and reminders that wait until someone is in the
-room. Greetings are recognized locally. Hourly reminder messages and free-form
-speech use an LLM and a TTS service over Wi-Fi.
+room. Hourly reminder messages and free-form speech use an LLM and a TTS service over Wi-Fi.
 
 > The repository is named **ESP32-MyPartner** and the device is called
-> **MyPartner**. The firmware and voice commands still refer to it as
-> **Partner**. Say **“Hi Partner”** or **“Hey Partner”** to hear **“Hi”**.
+> **MyPartner**. The firmware still refers to it as **Partner**.
 
 ## A look at MyPartner
 
@@ -35,8 +33,8 @@ not photographs. The display renders at 128 × 64 pixels.
 
 ## What it can do
 
-- **Respond locally** — AFE and MultiNet recognize greetings; the “Hi” reply
-  uses picoTTS audio prepared on the device.
+- **USB media** — UVC MJPEG camera, UAC microphone and speaker (16 kHz mono), and CDC control (help, ping, status, bootloader).
+- **Stream audio** — the microphone remains available over the existing WebSocket and AFE capture paths. MultiNet and local greeting recognition are removed.
 - **Announce the hour** — at each hour change in Western Indonesian Time
   (WIB), Partner generates a message with an LLM and reads it aloud using TTS.
 - **Remember personal reminders** — create and manage reminders through MCP.
@@ -51,12 +49,12 @@ not photographs. The display renders at 128 × 64 pixels.
 
 ```mermaid
 flowchart LR
-    Mic[I2S microphone] --> Voice[AFE + MultiNet]
-    Voice --> Greeting[Local Hi response]
+    Mic[Microphone] --> Voice[AFE + USB capture]
     Node[ESP-NOW sensor node] --> Partner[MyPartner · ESP32-S3]
     Partner --> OLED[OLED display]
     Partner --> Speaker[I2S speaker]
-    Greeting --> Speaker
+    Host[USB host] <--> Voice
+    Host --> Speaker
     Partner <--> Cloud[LLM + TTS over Wi-Fi]
     Client[MCP client / automation] <--> Partner
 ```
@@ -99,9 +97,8 @@ git submodule update --init --recursive
 After pulling changes that move a submodule, run the same command again to
 sync it.
 
-Install [PlatformIO](https://platformio.org/) and connect the board over USB.
-The project uses the `esp32-s3-devkitc1-n16r8` environment. Make sure the
-ESP-SR source and picoTTS model assets are available in `model/`.
+Install [PlatformIO Core 6.1.19 or newer](https://platformio.org/) and connect the board over USB.
+The default environment uses INMP441. Select `esp32-s3-analog-mic` for an analog ADC1 microphone on GPIO1.
 
 Copy `include/secret.h.example` to `include/secret.h`, then configure Wi-Fi
 and the API settings. `secret.h` is listed in `.gitignore`.
@@ -115,16 +112,13 @@ pio run -e esp32-s3-devkitc1-n16r8 -t upload --upload-port /dev/ttyACM0
 
 ### 3. Flash the voice models
 
-For a new board or a model change, flash the voice model partitions separately.
-This command writes the model partition and both picoTTS voice partitions:
+For a new board, initialize the ESP-SR submodule and flash the VAD model partition:
 
 ```sh
-python3 tools/upload_voice_models.py --port /dev/ttyACM0 --with-tts
+python3 tools/upload_voice_models.py --port /dev/ttyACM0
 ```
 
-Select MultiNet 5, 6, or 7 in `model/voice_model.json` before running the
-command. Use `--check --with-tts` to validate the assets and partition sizes
-without flashing; the script still generates the packed model file.
+Use `--check` to validate the assets and partition size without flashing. Existing VAD + MultiNet partitions can still be used; MultiNet is not loaded.
 
 Check the serial monitor for the IP address and service status. Adjust digital
 microphone and speaker gain with `DEFAULT_MIC_VOLUME` and
@@ -152,7 +146,7 @@ what to do with each notification.
 
 ## Project status
 
-MyPartner is an evolving experimental project. Local greetings, the display,
+MyPartner is an evolving experimental project. The display,
 sensor nodes, reminders, and MCP are available; recognition quality and
 connection reliability depend on the environment and hardware. TTS audio
 streams to the speaker, while hourly LLM messages are currently collected in
@@ -163,3 +157,7 @@ Run the available host checks from the workspace:
 ```sh
 bash tools/test_host.sh
 ```
+
+## USB camera wiring
+
+The camera uses the MyMedia Freenove pin map: XCLK 15, SDA 4, SCL 5, D0–D7 11/9/8/10/12/18/17/16, VSYNC 6, HREF 7 and PCLK 13. SDA/SCL share the OLED bus. Microphone SD/analog OUT is GPIO1 and speaker DIN is GPIO2; BCLK and WS are GPIO42 and GPIO41. The analog microphone uses ADC1 channel 0 and 3.3 V. USB OTG must be connected separately from the UART upload port.

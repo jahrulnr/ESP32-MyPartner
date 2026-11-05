@@ -12,7 +12,6 @@
 #include "services/OpenAiReminder.h"
 #include "services/WifiClock.h"
 #include "services/LocalVoice.h"
-#include "services/MultiNetRecognizer.h"
 #include "services/FtpFiles.h"
 #include "services/SensorMaster.h"
 #include "services/PersonalReminderService.h"
@@ -48,13 +47,14 @@ class ReminderApp {
   McpService mcp_;
   BootAudioCapture capture_;
   MicStream micStream_;
-  MultiNetRecognizer recognizer_;
+  UsbMedia media_;
   LocalVoice voice_;
   FtpFiles files_;
   CloudSpeech speech_;
   ReminderWorkflow workflow_;
   U8G2_SSD1306_128X64_NONAME_F_HW_I2C display_;
   ReminderScreen screen_;
+  bool displayPresent_ = false;
   QueueHandle_t reminders_ = nullptr;
   QueueHandle_t arrivals_ = nullptr;
   EventGroupHandle_t start_ = nullptr;

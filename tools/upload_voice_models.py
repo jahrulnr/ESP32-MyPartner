@@ -14,10 +14,9 @@ def main():
     parser.add_argument('--baud', default='921600')
     parser.add_argument('--check', action='store_true', help='Validate files/partitions without flashing')
     parser.add_argument('--with-tts', action='store_true', help='Also flash both picoTTS voice partitions')
-    parser.add_argument('--config', default='model/voice_model.json', help='Voice model selection JSON')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    subprocess.run([sys.executable, str(root / 'tools/pack_voice_models.py'), '--config', args.config], check=True)
+    subprocess.run([sys.executable, str(root / 'tools/pack_voice_models.py')], check=True)
     partitions = {}
     for line in (root / 'boards/esp32-s3-devkitc1-n16r8.csv').read_text().splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
@@ -25,7 +24,7 @@ def main():
         row = [cell.strip() for cell in next(csv.reader([line]))]
         partitions[row[0]] = (int(row[3], 0), int(row[4], 0))
     data = []
-    files = [('model', 'partner-mn.bin')]
+    files = [('model', 'partner-vad.bin')]
     if args.with_tts:
         files = [('picotts_ta', 'en-US_ta.bin'), ('picotts_sg', 'en-US_lh0_sg.bin')] + files
     for name, filename in files:

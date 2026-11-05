@@ -1,6 +1,9 @@
 #pragma once
 
 #ifdef ESP32S3_DEVKITC1_N16R8
+#ifndef MIC_USE_INMP441
+#define MIC_USE_INMP441 1
+#endif
 #define MIC_TYPE MIC_I2S
 
 #define SCL_PIN 5
